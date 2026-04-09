@@ -302,7 +302,28 @@ function App() {
       :(<div style={s.twoCol}><div style={s.card}>{renderGM("A",roundsA,C.A)}</div><div style={s.card}>{renderGM("B",roundsB,C.B)}</div></div>)}</>)}
 
     {tab==="classifiche"&&(<>{mob?(<><GroupSwitcher /><div style={s.card}>{activeGroup==="A"?renderSt("A",stA,C.A):renderSt("B",stB,C.B)}</div></>)
-      :(<div style={s.twoCol}><div style={s.card}>{renderSt("A",stA,C.A)}</div><div style={s.card}>{renderSt("B",stB,C.B)}</div></div>)}</>)}
+      :(<div style={s.twoCol}><div style={s.card}>{renderSt("A",stA,C.A)}</div><div style={s.card}>{renderSt("B",stB,C.B)}</div></div>)}
+      <div style={{...s.card,maxWidth:680,margin:"8px auto 0"}}>
+        <div style={{fontSize:mob?12:14,fontWeight:900,color:C.GOLD,marginBottom:12,letterSpacing:2}}>COME FUNZIONA LA CLASSIFICA</div>
+        <div style={{fontSize:mob?11:12,color:C.TXT,lineHeight:1.8}}>
+          <p style={{marginBottom:12}}>Ogni incontro si gioca al <span style={{color:C.GREEN,fontWeight:700}}>meglio dei 3 set</span>. Ogni set si gioca fino a 6 gol. Sul 5 pari si va ai vantaggi: chi segna il sesto gol vince il set 6-5. Vince l'incontro chi conquista 2 set su 3.</p>
+          <p style={{marginBottom:12}}>In classifica, ogni vittoria vale <span style={{color:C.GREEN,fontWeight:700}}>1 punto</span>. Non ci sono pareggi.</p>
+          <p style={{fontWeight:700,color:C.GOLD,marginBottom:8}}>Quando due o piu' squadre hanno gli stessi punti?</p>
+          <p style={{marginBottom:8}}>Si usa la <span style={{color:C.GOLD,fontWeight:700}}>classifica avulsa</span>: si guardano solo i risultati delle partite giocate tra le squadre a pari punti, e si applicano questi criteri in ordine:</p>
+          <p style={{marginBottom:4,paddingLeft:12}}>1. <span style={{color:C.TXT,fontWeight:700}}>Punti negli scontri diretti</span> tra le squadre a pari punti</p>
+          <p style={{marginBottom:4,paddingLeft:12}}>2. <span style={{color:C.TXT,fontWeight:700}}>Rapporto set</span> (set vinti diviso set persi) negli scontri diretti</p>
+          <p style={{marginBottom:4,paddingLeft:12}}>3. <span style={{color:C.TXT,fontWeight:700}}>Differenza reti</span> (gol fatti meno gol subiti) negli scontri diretti</p>
+          <p style={{marginBottom:12,paddingLeft:12,color:C.DIM}}>Se ancora non basta, si guardano i dati dell'intero girone:</p>
+          <p style={{marginBottom:4,paddingLeft:12}}>4. <span style={{color:C.TXT,fontWeight:700}}>Rapporto set generale</span></p>
+          <p style={{marginBottom:12,paddingLeft:12}}>5. <span style={{color:C.TXT,fontWeight:700}}>Differenza reti generale</span></p>
+          <p style={{marginBottom:12,color:C.DIM}}>Se la classifica avulsa riesce a separare solo alcune squadre dal gruppo (ad esempio una su tre), le restanti vengono ricalcolate da capo con gli stessi criteri, ma solo tra di loro.</p>
+          <p style={{fontWeight:700,color:C.GOLD,marginBottom:8}}>Esempio pratico</p>
+          <p style={{marginBottom:8}}>A, B e C chiudono tutte a 3 punti. Negli scontri diretti tra loro: A batte B, B batte C, C batte A. Ognuna ha 1 punto avulso. Si guarda il rapporto set degli scontri diretti: A ha un rapporto migliore e viene classificata prima. Restano B e C a pari: si ricalcola l'avulsa solo tra loro, e a quel punto lo scontro diretto B-C decide chi e' seconda e chi terza.</p>
+          <p style={{fontWeight:700,color:C.GOLD,marginBottom:8}}>Perche' il rapporto set viene prima della differenza reti?</p>
+          <p>Ogni incontro puo' durare 2 o 3 set. Chi gioca 3 set ha piu' gol in gioco rispetto a chi chiude in 2. Il rapporto set non risente di questa differenza, quindi e' un indicatore piu' equo del rendimento di ogni squadra.</p>
+        </div>
+      </div>
+    </>)}
 
     {tab==="tabellone"&&(<div style={s.sCol}>
       {!allDone&&<div style={{...s.card,textAlign:"center",color:C.GOLD,fontSize:mob?11:14}}>Completa i gironi per sbloccare il tabellone.</div>}
