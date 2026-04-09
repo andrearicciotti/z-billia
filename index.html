@@ -10,17 +10,160 @@
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { min-height: 100vh; }
-body { background: #1a1a2e; }
+body { background: #1a1a2e; -webkit-text-size-adjust: 100%; }
+.scroll-x { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.scroll-x::-webkit-scrollbar { height: 4px; }
+.scroll-x::-webkit-scrollbar-thumb { background: #334; border-radius: 2px; }
 </style>
-<script src="torneo.js"></script>
 </head>
 <body>
 <div id="root"></div>
+
+<!-- Logica torneo: script PLAIN (non Babel) così è disponibile subito -->
+<script>
+var TEAMS_A = [
+  "I MURATORI DI MAPELLO", "THE ORIGINAL DRINK TEAM", "LAS PEZIA",
+  "IL TENERO GIACOMO", "IL SECONDO VERDE", "TEAM OF TOOLS"
+];
+var TEAMS_B = [
+  "THE UNDERDOGS", "CRM MARKETING & SALES", "CORTO MUSO FC",
+  "AMARO LUCIANO", "OLDIES BUT GOLDIES", "GLI ASTIGMATICI"
+];
+
+var C = {
+  A: "#e85d26", B: "#2d7dd2", BG: "#1a1a2e", CARD: "#16213e", CARD2: "#1a2744",
+  TXT: "#e8e8e8", DIM: "#8899aa", GOLD: "#f0c040", GREEN: "#44bb77", RED: "#e05555"
+};
+
+function generateRoundRobin(teams) {
+  var n = teams.length, rounds = [], list = teams.slice();
+  for (var r = 0; r < n - 1; r++) {
+    var rm = [];
+    for (var i = 0; i < n / 2; i++) rm.push([list[i], list[n - 1 - i]]);
+    rounds.push(rm);
+    var last = list.pop(); list.splice(1, 0, last);
+  }
+  return rounds;
+}
+
+function getMatchWinner(matchData) {
+  if (!matchData || !matchData.sets) return null;
+  var sets = matchData.sets, wHome = 0, wAway = 0;
+  for (var i = 0; i < sets.length; i++) {
+    if (sets[i][0] > sets[i][1]) wHome++; else if (sets[i][1] > sets[i][0]) wAway++;
+  }
+  if (wHome >= 2) return matchData.home;
+  if (wAway >= 2) return matchData.away;
+  return null;
+}
+
+function isMatchComplete(matchData) {
+  return getMatchWinner(matchData) !== null;
+}
+
+function formatSets(matchData) {
+  if (!matchData || !matchData.sets || matchData.sets.length === 0) return "";
+  return matchData.sets.map(function(s) { return s[0] + "-" + s[1]; }).join("  ");
+}
+
+function getStandings(group, results, roundsForGroup, teamsForGroup) {
+  var teams = teamsForGroup, rounds = roundsForGroup;
+  var stats = {};
+  teams.forEach(function(t) { stats[t] = { name: t, points: 0, wins: 0, played: 0, gf: 0, gs: 0 }; });
+  var matchesByPair = {};
+
+  rounds.forEach(function(rd, ri) { rd.forEach(function(m, mi) {
+    var key = group + "-" + ri + "-" + mi;
+    var md = results[key];
+    if (!md || !isMatchComplete(md)) return;
+    var winner = getMatchWinner(md);
+    var home = m[0], away = m[1];
+    stats[home].played++; stats[away].played++;
+    if (winner) { stats[winner].points++; stats[winner].wins++; }
+    for (var i = 0; i < md.sets.length; i++) {
+      stats[home].gf += md.sets[i][0]; stats[home].gs += md.sets[i][1];
+      stats[away].gf += md.sets[i][1]; stats[away].gs += md.sets[i][0];
+    }
+    var pairKey = [home, away].sort().join("|||");
+    if (!matchesByPair[pairKey]) matchesByPair[pairKey] = [];
+    matchesByPair[pairKey].push({ home: home, away: away, sets: md.sets, winner: winner });
+  }); });
+
+  teams.forEach(function(t) { stats[t].gd = stats[t].gf - stats[t].gs; });
+  var arr = teams.map(function(t) { return stats[t]; });
+
+  function avulsaSort(tiedTeams) {
+    if (tiedTeams.length <= 1) return tiedTeams;
+    var tiedNames = {};
+    tiedTeams.forEach(function(t) { tiedNames[t.name] = true; });
+    var avStats = {};
+    tiedTeams.forEach(function(t) { avStats[t.name] = { pts: 0, gf: 0, gs: 0 }; });
+    var pairs = Object.keys(matchesByPair);
+    for (var p = 0; p < pairs.length; p++) {
+      var parts = pairs[p].split("|||");
+      if (!tiedNames[parts[0]] || !tiedNames[parts[1]]) continue;
+      var matches = matchesByPair[pairs[p]];
+      for (var mi = 0; mi < matches.length; mi++) {
+        var match = matches[mi];
+        if (match.winner && tiedNames[match.winner]) avStats[match.winner].pts++;
+        for (var si = 0; si < match.sets.length; si++) {
+          avStats[match.home].gf += match.sets[si][0]; avStats[match.home].gs += match.sets[si][1];
+          avStats[match.away].gf += match.sets[si][1]; avStats[match.away].gs += match.sets[si][0];
+        }
+      }
+    }
+    tiedTeams.sort(function(a, b) {
+      var pa = avStats[a.name].pts, pb = avStats[b.name].pts;
+      if (pa !== pb) return pb - pa;
+      var gda = avStats[a.name].gf - avStats[a.name].gs;
+      var gdb = avStats[b.name].gf - avStats[b.name].gs;
+      if (gda !== gdb) return gdb - gda;
+      return b.gd - a.gd;
+    });
+    return tiedTeams;
+  }
+
+  arr.sort(function(a, b) { return b.points - a.points; });
+  var finalArr = [], i = 0;
+  while (i < arr.length) {
+    var j = i;
+    while (j < arr.length && arr[j].points === arr[i].points) j++;
+    var tied = arr.slice(i, j);
+    if (tied.length > 1) { finalArr.push.apply(finalArr, avulsaSort(tied)); }
+    else { finalArr.push(tied[0]); }
+    i = j;
+  }
+  return finalArr;
+}
+
+function allGroupMatchesPlayed(results, roundsA, roundsB) {
+  var totalA = roundsA.reduce(function(s, r) { return s + r.length; }, 0);
+  var totalB = roundsB.reduce(function(s, r) { return s + r.length; }, 0);
+  var completed = 0;
+  for (var key in results) {
+    if (results.hasOwnProperty(key) && isMatchComplete(results[key])) completed++;
+  }
+  return completed >= totalA + totalB;
+}
+</script>
+
+<!-- React UI: processato da Babel -->
 <script type="text/babel">
 const { useState, useMemo, useEffect, useCallback } = React;
 const SK_BIN = "torneo_jb_bin";
 
+function useIsMobile(bp = 640) {
+  const [m, setM] = useState(window.innerWidth < bp);
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < bp);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, [bp]);
+  return m;
+}
+
 function App() {
+  const mob = useIsMobile();
   const [tab, setTab] = useState("gironi");
   const [results, setResults] = useState({});
   const [koResults, setKoResults] = useState({});
@@ -28,12 +171,12 @@ function App() {
   const [syncStatus, setSyncStatus] = useState("idle");
   const [lastSync, setLastSync] = useState(null);
   const [binInput, setBinInput] = useState("");
+  const [activeGroup, setActiveGroup] = useState("A");
 
   const roundsA = useMemo(() => generateRoundRobin(TEAMS_A), []);
   const roundsB = useMemo(() => generateRoundRobin(TEAMS_B), []);
   const configured = binId.length > 5;
 
-  /* LOAD (public read, no API key) */
   const loadFromBin = useCallback(async (silent) => {
     if (!configured) return;
     if (!silent) setSyncStatus("loading");
@@ -52,12 +195,8 @@ function App() {
 
   useEffect(() => { if (configured) loadFromBin(); }, [configured]);
 
-  function connect(id) {
-    localStorage.setItem(SK_BIN, id);
-    setBinId(id);
-  }
+  function connect(id) { localStorage.setItem(SK_BIN, id); setBinId(id); }
 
-  /* STANDINGS */
   const stA = useMemo(() => getStandings("A", results, roundsA, TEAMS_A), [results, roundsA]);
   const stB = useMemo(() => getStandings("B", results, roundsB, TEAMS_B), [results, roundsB]);
   const allDone = useMemo(() => allGroupMatchesPlayed(results, roundsA, roundsB), [results, roundsA, roundsB]);
@@ -77,46 +216,41 @@ function App() {
   ]; }, [allDone, koM, koResults, stA, stB]);
 
   const sfM = useMemo(() => [
-    { home:koResults["qf-0"]?.winner||null, away:koResults["qf-1"]?.winner||null, label:"SF1: Vinc.QF1 vs Vinc.QF2", id:"sf-0" },
-    { home:koResults["qf-2"]?.winner||null, away:koResults["qf-3"]?.winner||null, label:"SF2: Vinc.QF3 vs Vinc.QF4", id:"sf-1" },
+    { home:koResults["qf-0"]?.winner||null, away:koResults["qf-1"]?.winner||null, label:"SF1", id:"sf-0" },
+    { home:koResults["qf-2"]?.winner||null, away:koResults["qf-3"]?.winner||null, label:"SF2", id:"sf-1" },
   ], [koResults]);
 
   const fin = useMemo(() => ({ home:koResults["sf-0"]?.winner||null, away:koResults["sf-1"]?.winner||null, label:"FINALE", id:"final" }), [koResults]);
 
-  /* STYLES */
   const s = {
-    container: { fontFamily:"'Courier New', monospace", background:C.BG, color:C.TXT, minHeight:"100vh", padding:20 },
-    header: { textAlign:"center", marginBottom:24 },
-    title: { fontSize:28, fontWeight:900, letterSpacing:2, textTransform:"uppercase", background:`linear-gradient(90deg, ${C.A}, ${C.GOLD}, ${C.B})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", marginBottom:4 },
-    subtitle: { fontSize:12, color:C.DIM, letterSpacing:4 },
-    tabs: { display:"flex", justifyContent:"center", gap:8, marginBottom:24, flexWrap:"wrap" },
-    tab: (on) => ({ padding:"8px 18px", fontSize:13, fontWeight:700, fontFamily:"'Courier New', monospace", border:`2px solid ${on?C.GOLD:C.DIM}`, background:on?C.GOLD:"transparent", color:on?C.BG:C.DIM, cursor:"pointer", textTransform:"uppercase", letterSpacing:1 }),
-    gTitle: (c) => ({ fontSize:16, fontWeight:900, color:c, borderBottom:`2px solid ${c}`, paddingBottom:6, marginBottom:12, letterSpacing:2 }),
-    mRow: { display:"flex", alignItems:"center", gap:6, marginBottom:8, fontSize:12 },
-    teamName: (isW) => ({ flex:1, fontSize:11, fontWeight:isW?800:500, color:isW?C.GREEN:C.TXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }),
-    scoreBox: { fontSize:10, color:C.DIM, minWidth:80, textAlign:"center", fontWeight:700 },
-    vs: { fontSize:10, color:C.DIM, fontWeight:700, minWidth:20, textAlign:"center" },
+    container: { fontFamily:"'Courier New', monospace", background:C.BG, color:C.TXT, minHeight:"100vh", padding:mob?12:20 },
+    header: { textAlign:"center", marginBottom:mob?16:24 },
+    title: { fontSize:mob?20:28, fontWeight:900, letterSpacing:2, textTransform:"uppercase", background:`linear-gradient(90deg, ${C.A}, ${C.GOLD}, ${C.B})`, WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent", marginBottom:4 },
+    subtitle: { fontSize:mob?10:12, color:C.DIM, letterSpacing:mob?2:4 },
+    tabs: { display:"flex", justifyContent:"center", gap:mob?4:8, marginBottom:mob?16:24, flexWrap:"wrap" },
+    tab: (on) => ({ padding:mob?"6px 10px":"8px 18px", fontSize:mob?11:13, fontWeight:700, fontFamily:"'Courier New', monospace", border:`2px solid ${on?C.GOLD:C.DIM}`, background:on?C.GOLD:"transparent", color:on?C.BG:C.DIM, cursor:"pointer", textTransform:"uppercase", letterSpacing:1 }),
+    gTitle: (c) => ({ fontSize:mob?13:16, fontWeight:900, color:c, borderBottom:`2px solid ${c}`, paddingBottom:6, marginBottom:12, letterSpacing:2 }),
+    mRowDesktop: { display:"flex", alignItems:"center", gap:6, marginBottom:8, fontSize:12, padding:"4px 6px", borderRadius:4 },
+    mRowMobile: { marginBottom:10, padding:"8px 10px", borderRadius:6, border:"1px solid #2a3a5a" },
+    teamName: (isW, align) => ({ fontSize:11, fontWeight:isW?800:500, color:isW?C.GREEN:C.TXT, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", textAlign:align||"left" }),
+    scoreBox: { fontSize:mob?11:10, color:C.DIM, textAlign:"center", fontWeight:700, padding:mob?"4px 0":"0" },
     rLabel: { fontSize:11, color:C.GOLD, fontWeight:700, marginTop:12, marginBottom:6 },
-    tbl: { width:"100%", borderCollapse:"collapse", fontSize:12, marginBottom:16 },
-    th: { textAlign:"left", padding:"6px 6px", borderBottom:"1px solid #334", color:C.DIM, fontSize:10, fontWeight:700, letterSpacing:1 },
-    thR: { textAlign:"right", padding:"6px 6px", borderBottom:"1px solid #334", color:C.DIM, fontSize:10, fontWeight:700, letterSpacing:1 },
-    td: (h) => ({ padding:"6px 6px", borderBottom:"1px solid #1a2a3a", fontWeight:h?800:400, color:h?C.GOLD:C.TXT }),
-    tdR: (h) => ({ padding:"6px 6px", borderBottom:"1px solid #1a2a3a", fontWeight:h?800:400, color:h?C.GOLD:C.TXT, textAlign:"right" }),
-    pos: (p) => ({ padding:"6px 6px", borderBottom:"1px solid #1a2a3a", fontWeight:800, color:p<=2?C.GREEN:C.DIM }),
-    card: { background:C.CARD, border:"1px solid #2a3a5a", padding:16, marginBottom:16 },
-    twoCol: { display:"grid", gridTemplateColumns:window.innerWidth<700?"1fr":"1fr 1fr", gap:16 },
+    card: { background:C.CARD, border:"1px solid #2a3a5a", padding:mob?12:16, marginBottom:16 },
+    twoCol: { display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 },
     sCol: { maxWidth:600, margin:"0 auto" },
-    bM: { background:C.CARD2, border:"1px solid #2a3a5a", padding:10, marginBottom:8 },
+    bM: { background:C.CARD2, border:"1px solid #2a3a5a", padding:mob?8:10, marginBottom:8 },
     bL: { fontSize:10, color:C.DIM, marginBottom:6, letterSpacing:1, fontWeight:700 },
     bS: { marginBottom:24 },
-    sT: { fontSize:14, fontWeight:900, letterSpacing:2, marginBottom:10, textTransform:"uppercase" },
-    champ: { textAlign:"center", padding:20, background:`linear-gradient(135deg, ${C.CARD}, #2a2a1e)`, border:`2px solid ${C.GOLD}`, marginTop:8 },
-    champN: { fontSize:22, fontWeight:900, color:C.GOLD, letterSpacing:2 },
+    sT: { fontSize:mob?12:14, fontWeight:900, letterSpacing:2, marginBottom:10, textTransform:"uppercase" },
+    champ: { textAlign:"center", padding:mob?16:20, background:`linear-gradient(135deg, ${C.CARD}, #2a2a1e)`, border:`2px solid ${C.GOLD}`, marginTop:8 },
+    champN: { fontSize:mob?18:22, fontWeight:900, color:C.GOLD, letterSpacing:2 },
     btn: { padding:"6px 14px", fontSize:11, fontFamily:"'Courier New', monospace", fontWeight:700, background:"transparent", border:"1px solid #555", color:C.DIM, cursor:"pointer", marginTop:8 },
-    input: { width:"100%", padding:"8px 10px", fontFamily:"'Courier New', monospace", fontSize:12, background:"#0d1117", border:"1px solid #334", color:C.TXT, marginTop:4, marginBottom:12 },
+    input: { width:"100%", padding:"10px", fontFamily:"'Courier New', monospace", fontSize:14, background:"#0d1117", border:"1px solid #334", color:C.TXT, marginTop:4, marginBottom:12, borderRadius:4 },
     lbl: { fontSize:11, color:C.GOLD, fontWeight:700, letterSpacing:1 },
-    sync: { display:"flex", alignItems:"center", justifyContent:"center", gap:12, padding:"6px 0", marginBottom:16, fontSize:11, color:C.DIM },
+    sync: { display:"flex", alignItems:"center", justifyContent:"center", gap:mob?8:12, padding:"6px 0", marginBottom:mob?12:16, fontSize:mob?10:11, color:C.DIM, flexWrap:"wrap" },
     dot: (c) => ({ width:8, height:8, borderRadius:"50%", background:c, display:"inline-block" }),
+    groupTabs: { display:"flex", gap:0, marginBottom:12 },
+    groupTab: (on, c) => ({ flex:1, padding:"8px", fontSize:12, fontWeight:700, fontFamily:"'Courier New', monospace", border:`2px solid ${c}`, background:on?c+"20":"transparent", color:on?c:C.DIM, cursor:"pointer", textAlign:"center" }),
   };
 
   /* NOT CONNECTED */
@@ -128,23 +262,41 @@ function App() {
         <div style={{fontSize:11,color:C.DIM,marginBottom:16,lineHeight:1.6}}>Inserisci il Bin ID fornito dall'organizzatore.</div>
         <label style={s.lbl}>BIN ID</label>
         <input style={s.input} value={binInput} onChange={e=>setBinInput(e.target.value)} placeholder="64a..." />
-        <button style={{...s.btn,borderColor:C.GREEN,color:C.GREEN}} onClick={()=>connect(binInput)}>Connetti</button>
+        <button style={{...s.btn,borderColor:C.GREEN,color:C.GREEN,padding:"10px 20px",fontSize:13}} onClick={()=>connect(binInput)}>Connetti</button>
       </div>
     </div>);
   }
 
-  /* SYNC BAR */
   function SyncBar() {
     const map = { idle:{c:C.DIM,t:"Non connesso"}, loading:{c:C.B,t:"Caricamento..."}, saved:{c:C.GREEN,t:"Aggiornato"}, error:{c:C.RED,t:"Errore"} };
     const st = map[syncStatus]||map.idle;
     return (<div style={s.sync}>
       <span style={s.dot(st.c)}></span><span>{st.t}</span>
       {lastSync && <span style={{color:"#556"}}>({lastSync.toLocaleTimeString("it-IT")})</span>}
-      <button style={{...s.btn,marginTop:0,padding:"3px 8px",fontSize:10}} onClick={()=>loadFromBin()}>Ricarica</button>
+      <button style={{...s.btn,marginTop:0,padding:"4px 10px",fontSize:10}} onClick={()=>loadFromBin()}>Ricarica</button>
     </div>);
   }
 
-  /* RENDER */
+  function MatchCard({ home, away, matchData, winner }) {
+    const setsStr = matchData ? formatSets(matchData) : "";
+    if (mob) {
+      return (
+        <div style={{...s.mRowMobile, background:winner?C.GREEN+"08":"transparent"}}>
+          <div style={s.teamName(winner===home)}>{home}</div>
+          <div style={s.scoreBox}>{setsStr || "\u2014"}</div>
+          <div style={{...s.teamName(winner===away), textAlign:"right"}}>{away}</div>
+        </div>
+      );
+    }
+    return (
+      <div style={{...s.mRowDesktop, background:winner?C.GREEN+"08":"transparent"}}>
+        <div style={{...s.teamName(winner===home), flex:1}}>{home}</div>
+        <div style={{...s.scoreBox, minWidth:80}}>{setsStr || "\u2014"}</div>
+        <div style={{...s.teamName(winner===away, "right"), flex:1}}>{away}</div>
+      </div>
+    );
+  }
+
   function renderGM(g, rounds, acc) {
     return (<div><div style={s.gTitle(acc)}>GIRONE {g}</div>
       {rounds.map((rd,ri) => (<div key={ri}><div style={s.rLabel}>Turno {ri+1}</div>
@@ -152,40 +304,44 @@ function App() {
           const key = `${g}-${ri}-${mi}`;
           const md = results[key];
           const winner = md ? getMatchWinner(md) : null;
-          const setsStr = md ? formatSets(md) : "";
-          return (
-            <div key={mi} style={{...s.mRow, background:winner?C.GREEN+"08":"transparent", padding:"4px 6px", borderRadius:4}}>
-              <div style={s.teamName(winner===m[0])}>{m[0]}</div>
-              <div style={s.scoreBox}>{setsStr || "—"}</div>
-              <div style={{...s.teamName(winner===m[1]),textAlign:"right"}}>{m[1]}</div>
-            </div>
-          );
+          return <MatchCard key={mi} home={m[0]} away={m[1]} matchData={md} winner={winner} />;
         })}</div>))}
     </div>);
   }
 
   function renderSt(g, standings, acc) {
+    const cp = mob ? "4px 3px" : "6px 6px";
+    const fs = mob ? 9 : 10;
+    const th = { textAlign:"left", padding:cp, borderBottom:"1px solid #334", color:C.DIM, fontSize:fs, fontWeight:700, letterSpacing:1 };
+    const thR = { ...th, textAlign:"right", letterSpacing:0 };
     return (<div><div style={s.gTitle(acc)}>CLASSIFICA GIRONE {g}</div>
-      <table style={s.tbl}>
-        <thead><tr>
-          <th style={s.th}>#</th><th style={s.th}>SQUADRA</th>
-          <th style={s.thR}>G</th><th style={s.thR}>V</th><th style={s.thR}>GF</th><th style={s.thR}>GS</th><th style={s.thR}>DR</th><th style={s.thR}>PT</th>
-        </tr></thead>
-        <tbody>{standings.map((t,i) => (
-          <tr key={t.name} style={{background:i<2?C.GREEN+"10":"transparent"}}>
-            <td style={s.pos(i+1)}>{i+1}</td>
-            <td style={s.td(i<2)}>{t.name}</td>
-            <td style={s.tdR(false)}>{t.played}</td>
-            <td style={s.tdR(false)}>{t.wins}</td>
-            <td style={s.tdR(false)}>{t.gf}</td>
-            <td style={s.tdR(false)}>{t.gs}</td>
-            <td style={s.tdR(false)}>{t.gd>0?"+"+t.gd:t.gd}</td>
-            <td style={s.tdR(true)}>{t.points}</td>
-          </tr>
-        ))}</tbody>
-      </table>
-      <div style={{fontSize:10,color:C.DIM}}>G=Giocate V=Vinte GF=Gol Fatti GS=Gol Subiti DR=Diff.Reti PT=Punti</div>
-      <div style={{fontSize:10,color:C.DIM,marginTop:4}}>Parita': scontri diretti avulsi, poi diff.reti avulsa, poi diff.reti generale</div>
+      <div className="scroll-x">
+        <table style={{ width:"100%", borderCollapse:"collapse", fontSize:mob?10:12, marginBottom:12, minWidth:mob?420:0 }}>
+          <thead><tr>
+            <th style={th}>#</th><th style={th}>SQUADRA</th>
+            <th style={thR}>G</th><th style={thR}>V</th><th style={thR}>GF</th><th style={thR}>GS</th><th style={thR}>DR</th><th style={thR}>PT</th>
+          </tr></thead>
+          <tbody>{standings.map((t,i) => {
+            const cell = { padding:cp, borderBottom:"1px solid #1a2a3a" };
+            return (
+              <tr key={t.name} style={{background:i<2?C.GREEN+"10":"transparent"}}>
+                <td style={{...cell,fontWeight:800,color:i<2?C.GREEN:C.DIM}}>{i+1}</td>
+                <td style={{...cell,fontWeight:i<2?800:400,color:i<2?C.GOLD:C.TXT,maxWidth:mob?140:999,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.name}</td>
+                <td style={{...cell,textAlign:"right"}}>{t.played}</td>
+                <td style={{...cell,textAlign:"right"}}>{t.wins}</td>
+                <td style={{...cell,textAlign:"right"}}>{t.gf}</td>
+                <td style={{...cell,textAlign:"right"}}>{t.gs}</td>
+                <td style={{...cell,textAlign:"right"}}>{t.gd>0?"+"+t.gd:t.gd}</td>
+                <td style={{...cell,textAlign:"right",fontWeight:800,color:C.GOLD}}>{t.points}</td>
+              </tr>
+            );
+          })}</tbody>
+        </table>
+      </div>
+      <div style={{fontSize:mob?9:10,color:C.DIM,lineHeight:1.5}}>
+        G=Giocate V=Vinte GF=Gol Fatti GS=Gol Subiti DR=Diff.Reti PT=Punti<br/>
+        Parita': scontri diretti avulsi, diff.reti avulsa, diff.reti generale
+      </div>
     </div>);
   }
 
@@ -194,16 +350,17 @@ function App() {
     const an=typeof mu.away==="object"?mu.away?.name:mu.away;
     const md = koResults[mu.id];
     const winner = md?.winner||null;
-    const setsStr = md ? formatSets(md) : "";
     const ready = hn && an;
     return (<div key={mu.id} style={s.bM}><div style={s.bL}>{mu.label}</div>
-      {ready ? (
-        <div style={{...s.mRow,padding:"4px 6px"}}>
-          <div style={s.teamName(winner===hn)}>{hn}</div>
-          <div style={s.scoreBox}>{setsStr || "—"}</div>
-          <div style={{...s.teamName(winner===an),textAlign:"right"}}>{an}</div>
-        </div>
-      ) : <div style={{fontSize:11,color:C.DIM,fontStyle:"italic"}}>In attesa...</div>}
+      {ready ? <MatchCard home={hn} away={an} matchData={md} winner={winner} />
+             : <div style={{fontSize:11,color:C.DIM,fontStyle:"italic"}}>In attesa...</div>}
+    </div>);
+  }
+
+  function GroupSwitcher() {
+    return (<div style={s.groupTabs}>
+      <button style={s.groupTab(activeGroup==="A", C.A)} onClick={()=>setActiveGroup("A")}>GIRONE A</button>
+      <button style={s.groupTab(activeGroup==="B", C.B)} onClick={()=>setActiveGroup("B")}>GIRONE B</button>
     </div>);
   }
 
@@ -214,23 +371,41 @@ function App() {
     </div>
     <SyncBar />
     <div style={s.tabs}>
-      <button style={s.tab(tab==="gironi")} onClick={()=>setTab("gironi")}>Partite Gironi</button>
+      <button style={s.tab(tab==="gironi")} onClick={()=>setTab("gironi")}>Gironi</button>
       <button style={s.tab(tab==="classifiche")} onClick={()=>setTab("classifiche")}>Classifiche</button>
       <button style={s.tab(tab==="tabellone")} onClick={()=>setTab("tabellone")}>Tabellone</button>
     </div>
 
-    {tab==="gironi" && (<div style={s.twoCol}><div style={s.card}>{renderGM("A",roundsA,C.A)}</div><div style={s.card}>{renderGM("B",roundsB,C.B)}</div></div>)}
+    {tab==="gironi" && (<>
+      {mob ? (<>
+        <GroupSwitcher />
+        <div style={s.card}>
+          {activeGroup==="A" ? renderGM("A",roundsA,C.A) : renderGM("B",roundsB,C.B)}
+        </div>
+      </>) : (
+        <div style={s.twoCol}><div style={s.card}>{renderGM("A",roundsA,C.A)}</div><div style={s.card}>{renderGM("B",roundsB,C.B)}</div></div>
+      )}
+    </>)}
 
-    {tab==="classifiche" && (<div style={s.twoCol}><div style={s.card}>{renderSt("A",stA,C.A)}</div><div style={s.card}>{renderSt("B",stB,C.B)}</div></div>)}
+    {tab==="classifiche" && (<>
+      {mob ? (<>
+        <GroupSwitcher />
+        <div style={s.card}>
+          {activeGroup==="A" ? renderSt("A",stA,C.A) : renderSt("B",stB,C.B)}
+        </div>
+      </>) : (
+        <div style={s.twoCol}><div style={s.card}>{renderSt("A",stA,C.A)}</div><div style={s.card}>{renderSt("B",stB,C.B)}</div></div>
+      )}
+    </>)}
 
     {tab==="tabellone" && (<div style={s.sCol}>
-      {!allDone && <div style={{...s.card,textAlign:"center",color:C.GOLD}}>Completa i gironi per sbloccare il tabellone.</div>}
+      {!allDone && <div style={{...s.card,textAlign:"center",color:C.GOLD,fontSize:mob?11:14}}>Completa i gironi per sbloccare il tabellone.</div>}
       {allDone && (<>
-        <div style={s.bS}><div style={{...s.sT,color:C.A}}>SPAREGGI</div><div style={{fontSize:11,color:C.DIM,marginBottom:10}}>3°-6° posto, incrociati tra gironi</div>{koM.map(renderKo)}</div>
-        <div style={s.bS}><div style={{...s.sT,color:C.B}}>QUARTI DI FINALE</div>{qfM.map(renderKo)}</div>
-        <div style={s.bS}><div style={{...s.sT,color:C.GOLD}}>SEMIFINALI</div>{sfM.map(renderKo)}</div>
+        <div style={s.bS}><div style={{...s.sT,color:C.A}}>SPAREGGI</div><div style={{fontSize:mob?10:11,color:C.DIM,marginBottom:10}}>3°-6° posto, incrociati tra gironi</div>{koM.map(m => renderKo(m))}</div>
+        <div style={s.bS}><div style={{...s.sT,color:C.B}}>QUARTI DI FINALE</div>{qfM.map(m => renderKo(m))}</div>
+        <div style={s.bS}><div style={{...s.sT,color:C.GOLD}}>SEMIFINALI</div>{sfM.map(m => renderKo(m))}</div>
         <div style={s.bS}><div style={{...s.sT,color:C.GOLD}}>FINALE</div>{renderKo(fin)}
-          {koResults["final"]?.winner && <div style={s.champ}><div style={{fontSize:12,color:C.DIM,marginBottom:8,letterSpacing:3}}>CAMPIONE</div><div style={s.champN}>{koResults["final"].winner}</div></div>}
+          {koResults["final"]?.winner && <div style={s.champ}><div style={{fontSize:mob?10:12,color:C.DIM,marginBottom:8,letterSpacing:3}}>CAMPIONE</div><div style={s.champN}>{koResults["final"].winner}</div></div>}
         </div>
       </>)}
     </div>)}
