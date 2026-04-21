@@ -157,8 +157,8 @@ function App() {
     {home:stB[1]?.name,away:kw[0],label:"QF4: 2\u00b0B vs vinc. 3\u00b0A\u20136\u00b0B",id:"qf-3"},
   ];},[allDone,koM,koResults,stA,stB]);
   const sfM = useMemo(()=>[
-    {home:koResults["qf-0"]?.winner||null,away:koResults["qf-1"]?.winner||null,label:"SF1",id:"sf-0"},
-    {home:koResults["qf-2"]?.winner||null,away:koResults["qf-3"]?.winner||null,label:"SF2",id:"sf-1"},
+    {home:koResults["qf-0"]?.winner||null,away:koResults["qf-3"]?.winner||null,label:"SF1",id:"sf-0"},
+    {home:koResults["qf-1"]?.winner||null,away:koResults["qf-2"]?.winner||null,label:"SF2",id:"sf-1"},
   ],[koResults]);
   const fin = useMemo(()=>({home:koResults["sf-0"]?.winner||null,away:koResults["sf-1"]?.winner||null,label:"FINALE",id:"final"}),[koResults]);
 
@@ -345,7 +345,7 @@ function App() {
           <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>1° Girone B vs vincitore spareggio 4°A-5°B</p>
           <p style={{marginBottom:10,paddingLeft:12,color:C.DIM}}>2° Girone B vs vincitore spareggio 3°A-6°B</p>
           <p style={{fontWeight:700,color:C.GOLD,marginBottom:6}}>Semifinali e Finale:</p>
-          <p style={{paddingLeft:12,color:C.DIM}}>Le quattro squadre vincitrici dei quarti si sfidano in semifinale (vincitore QF1 vs QF2, vincitore QF3 vs QF4). I due vincitori si incontrano in finale.</p>
+          <p style={{paddingLeft:12,color:C.DIM}}>Le quattro squadre vincitrici dei quarti si sfidano in semifinale con incroci incrociati: vincitore QF1 vs vincitore QF4, vincitore QF2 vs vincitore QF3. Questo garantisce che in semifinale una squadra del ramo del Girone A incontri sempre una del ramo del Girone B, evitando che le favorite dello stesso girone si scontrino prima della finale. I due vincitori si incontrano in finale.</p>
         </div>
       </div>
 
@@ -370,8 +370,8 @@ function App() {
           { h: slotB(2), a: sp[0].w || `Vinc. ${sp[0].label}`, w: koW("qf-3"), label:"QF4" },
         ];
         const sf = [
-          { h: qf[0].w || `Vinc. ${qf[0].label}`, a: qf[1].w || `Vinc. ${qf[1].label}`, w: koW("sf-0"), label:"SF1" },
-          { h: qf[2].w || `Vinc. ${qf[2].label}`, a: qf[3].w || `Vinc. ${qf[3].label}`, w: koW("sf-1"), label:"SF2" },
+          { h: qf[0].w || `Vinc. ${qf[0].label}`, a: qf[3].w || `Vinc. ${qf[3].label}`, w: koW("sf-0"), label:"SF1" },
+          { h: qf[1].w || `Vinc. ${qf[1].label}`, a: qf[2].w || `Vinc. ${qf[2].label}`, w: koW("sf-1"), label:"SF2" },
         ];
         const fin = { h: sf[0].w || `Vinc. ${sf[0].label}`, a: sf[1].w || `Vinc. ${sf[1].label}`, w: koW("final") };
 
