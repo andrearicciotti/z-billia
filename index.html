@@ -325,10 +325,113 @@ function App() {
       </div>
     </>)}
 
-    {tab==="tabellone"&&(<div style={s.sCol}>
-      {!allDone&&<div style={{...s.card,textAlign:"center",color:C.GOLD,fontSize:mob?11:14}}>Completa i gironi per sbloccare il tabellone.</div>}
+    {tab==="tabellone"&&(<div style={{maxWidth:700,margin:"0 auto"}}>
+
+      {/* ── REGOLAMENTO ── */}
+      <div style={{...s.card,marginBottom:16}}>
+        <div style={{fontSize:mob?12:14,fontWeight:900,color:C.GOLD,marginBottom:12,letterSpacing:2}}>COME E' COSTRUITO IL TABELLONE</div>
+        <div style={{fontSize:mob?11:12,color:C.TXT,lineHeight:1.8}}>
+          <p style={{marginBottom:10}}>Al termine della fase a gironi, le 12 squadre vengono divise in base alla loro posizione finale:</p>
+          <p style={{marginBottom:6}}><span style={{color:C.GREEN,fontWeight:700}}>1° e 2° classificato</span> di ogni girone accedono direttamente ai <span style={{color:C.GREEN,fontWeight:700}}>quarti di finale</span>, senza dover passare dagli spareggi.</p>
+          <p style={{marginBottom:10}}><span style={{color:C.A,fontWeight:700}}>Dal 3° al 6° classificato</span> di ogni girone si sfidano in <span style={{color:C.A,fontWeight:700}}>spareggi ad eliminazione diretta</span>, con incroci tra i due gironi: le posizioni alte di un girone affrontano le posizioni basse dell'altro, in modo che chi ha fatto meglio trovi un avversario meno favorito.</p>
+          <p style={{fontWeight:700,color:C.GOLD,marginBottom:6}}>Spareggi:</p>
+          <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>3° Girone A vs 6° Girone B</p>
+          <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>4° Girone A vs 5° Girone B</p>
+          <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>5° Girone A vs 4° Girone B</p>
+          <p style={{marginBottom:10,paddingLeft:12,color:C.DIM}}>6° Girone A vs 3° Girone B</p>
+          <p style={{fontWeight:700,color:C.GOLD,marginBottom:6}}>Quarti di finale:</p>
+          <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>1° Girone A vs vincitore spareggio 6°A-3°B</p>
+          <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>2° Girone A vs vincitore spareggio 5°A-4°B</p>
+          <p style={{marginBottom:3,paddingLeft:12,color:C.DIM}}>1° Girone B vs vincitore spareggio 4°A-5°B</p>
+          <p style={{marginBottom:10,paddingLeft:12,color:C.DIM}}>2° Girone B vs vincitore spareggio 3°A-6°B</p>
+          <p style={{fontWeight:700,color:C.GOLD,marginBottom:6}}>Semifinali e Finale:</p>
+          <p style={{paddingLeft:12,color:C.DIM}}>Le quattro squadre vincitrici dei quarti si sfidano in semifinale (vincitore QF1 vs QF2, vincitore QF3 vs QF4). I due vincitori si incontrano in finale.</p>
+        </div>
+      </div>
+
+      {/* ── BRACKET PREVIEW ── */}
+      {(()=>{
+        /* Helper: nome squadra o dicitura generica */
+        const slotA = (pos) => allDone ? stA[pos-1]?.name : `${pos}\u00b0 Girone A`;
+        const slotB = (pos) => allDone ? stB[pos-1]?.name : `${pos}\u00b0 Girone B`;
+        const koW = (id) => koResults[id]?.winner || null;
+
+        /* Nomi spareggi */
+        const sp = [
+          { h: slotA(3), a: slotB(6), w: koW("ko-0"), id:"ko-0", label:"Spar. 1" },
+          { h: slotA(4), a: slotB(5), w: koW("ko-1"), id:"ko-1", label:"Spar. 2" },
+          { h: slotA(5), a: slotB(4), w: koW("ko-2"), id:"ko-2", label:"Spar. 3" },
+          { h: slotA(6), a: slotB(3), w: koW("ko-3"), id:"ko-3", label:"Spar. 4" },
+        ];
+        const qf = [
+          { h: slotA(1), a: sp[3].w || `Vinc. ${sp[3].label}`, w: koW("qf-0"), label:"QF1" },
+          { h: slotA(2), a: sp[2].w || `Vinc. ${sp[2].label}`, w: koW("qf-1"), label:"QF2" },
+          { h: slotB(1), a: sp[1].w || `Vinc. ${sp[1].label}`, w: koW("qf-2"), label:"QF3" },
+          { h: slotB(2), a: sp[0].w || `Vinc. ${sp[0].label}`, w: koW("qf-3"), label:"QF4" },
+        ];
+        const sf = [
+          { h: qf[0].w || `Vinc. ${qf[0].label}`, a: qf[1].w || `Vinc. ${qf[1].label}`, w: koW("sf-0"), label:"SF1" },
+          { h: qf[2].w || `Vinc. ${qf[2].label}`, a: qf[3].w || `Vinc. ${qf[3].label}`, w: koW("sf-1"), label:"SF2" },
+        ];
+        const fin = { h: sf[0].w || `Vinc. ${sf[0].label}`, a: sf[1].w || `Vinc. ${sf[1].label}`, w: koW("final") };
+
+        const BracketRow = ({match, accentColor, phase}) => {
+          const isKnown = (n) => n && !n.startsWith("Vinc.");
+          const won = match.w;
+          return (
+            <div style={{marginBottom:8,background:C.CARD2,border:`1px solid ${accentColor}30`,borderRadius:4,overflow:"hidden"}}>
+              <div style={{fontSize:9,fontWeight:700,color:accentColor,padding:"3px 8px",background:accentColor+"15",letterSpacing:1}}>{phase}</div>
+              <div style={{padding:"6px 8px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <div style={{flex:1,fontSize:mob?10:11,fontWeight:won===match.h?800:400,color:won===match.h?C.GREEN:isKnown(match.h)?C.TXT:C.DIM,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{match.h}</div>
+                  <div style={{fontSize:9,color:C.DIM,fontWeight:700,minWidth:16,textAlign:"center"}}>vs</div>
+                  <div style={{flex:1,fontSize:mob?10:11,fontWeight:won===match.a?800:400,color:won===match.a?C.GREEN:isKnown(match.a)?C.TXT:C.DIM,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",textAlign:"right"}}>{match.a}</div>
+                </div>
+                {won&&<div style={{fontSize:9,color:C.GREEN,fontWeight:700,marginTop:4,textAlign:"center"}}>Vincitore: {won}</div>}
+                {match.sets&&<div style={{fontSize:9,color:C.DIM,textAlign:"center",marginTop:2}}>{formatSets(koResults[match.id])}</div>}
+              </div>
+            </div>
+          );
+        };
+
+        const colStyle = mob
+          ? {display:"block"}
+          : {display:"grid", gridTemplateColumns:"1fr 1fr", gap:16};
+
+        return (
+          <div style={{...s.card,marginBottom:16}}>
+            <div style={{fontSize:mob?12:14,fontWeight:900,color:C.GOLD,marginBottom:16,letterSpacing:2}}>ANTEPRIMA TABELLONE</div>
+
+            {/* Spareggi + QF su due colonne */}
+            <div style={{fontSize:mob?10:11,fontWeight:700,color:C.A,marginBottom:8,letterSpacing:1}}>SPAREGGI</div>
+            <div style={colStyle}>
+              <div>{sp.slice(0,2).map((m,i)=><BracketRow key={i} match={m} accentColor={C.A} phase={m.label} />)}</div>
+              <div>{sp.slice(2,4).map((m,i)=><BracketRow key={i} match={m} accentColor={C.A} phase={m.label} />)}</div>
+            </div>
+
+            <div style={{fontSize:mob?10:11,fontWeight:700,color:C.B,marginBottom:8,marginTop:8,letterSpacing:1}}>QUARTI DI FINALE</div>
+            <div style={colStyle}>
+              <div>{qf.slice(0,2).map((m,i)=><BracketRow key={i} match={m} accentColor={C.B} phase={m.label} />)}</div>
+              <div>{qf.slice(2,4).map((m,i)=><BracketRow key={i} match={m} accentColor={C.B} phase={m.label} />)}</div>
+            </div>
+
+            <div style={{fontSize:mob?10:11,fontWeight:700,color:C.GOLD,marginBottom:8,marginTop:8,letterSpacing:1}}>SEMIFINALI</div>
+            <div style={colStyle}>
+              {sf.map((m,i)=><BracketRow key={i} match={m} accentColor={C.GOLD} phase={m.label} />)}
+            </div>
+
+            <div style={{fontSize:mob?10:11,fontWeight:700,color:C.GOLD,marginBottom:8,marginTop:8,letterSpacing:1}}>FINALE</div>
+            <BracketRow match={fin} accentColor={C.GOLD} phase="Finale" />
+
+            {fin.w&&<div style={s.champ}><div style={{fontSize:mob?10:12,color:C.DIM,marginBottom:8,letterSpacing:3}}>CAMPIONE</div><div style={s.champN}>{fin.w}</div></div>}
+          </div>
+        );
+      })()}
+
+      {/* ── MATCH GIOCABILI (solo a gironi completi) ── */}
       {allDone&&(<>
-        <div style={s.bS}><div style={{...s.sT,color:C.A}}>SPAREGGI</div><div style={{fontSize:mob?10:11,color:C.DIM,marginBottom:10}}>3°-6° posto, incrociati tra gironi</div>{koM.map(m=>renderKo(m))}</div>
+        <div style={{fontSize:mob?12:14,fontWeight:900,color:C.TXT,marginBottom:12,letterSpacing:2}}>RISULTATI FASE FINALE</div>
+        <div style={s.bS}><div style={{...s.sT,color:C.A}}>SPAREGGI</div>{koM.map(m=>renderKo(m))}</div>
         <div style={s.bS}><div style={{...s.sT,color:C.B}}>QUARTI DI FINALE</div>{qfM.map(m=>renderKo(m))}</div>
         <div style={s.bS}><div style={{...s.sT,color:C.GOLD}}>SEMIFINALI</div>{sfM.map(m=>renderKo(m))}</div>
         <div style={s.bS}><div style={{...s.sT,color:C.GOLD}}>FINALE</div>{renderKo(fin)}
