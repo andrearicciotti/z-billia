@@ -184,8 +184,8 @@
       const koM = useMemo(() => !allDone ? [] : [{ home: stA[2], away: stB[5], label: "3\u00b0A vs 6\u00b0B", id: "ko-0" }, { home: stA[3], away: stB[4], label: "4\u00b0A vs 5\u00b0B", id: "ko-1" }, { home: stA[4], away: stB[3], label: "5\u00b0A vs 4\u00b0B", id: "ko-2" }, { home: stA[5], away: stB[2], label: "6\u00b0A vs 3\u00b0B", id: "ko-3" }], [allDone, stA, stB]);
       const qfM = useMemo(() => {
         if (!allDone) return []; const kw = koM.map(m => koResults[m.id]?.winner || null); return [
-          { home: stA[0]?.name, away: kw[3], label: "QF1: 1\u00b0A vs vinc. 6\u00b0A\u20133\u00b0B", id: "qf-0" },
-          { home: stA[1]?.name, away: kw[2], label: "QF2: 2\u00b0A vs vinc. 5\u00b0A\u20134\u00b0B", id: "qf-1" },
+          { home: stA[0]?.name, away: kw[2], label: "QF1: 1\u00b0A vs vinc. 6\u00b0A\u20133\u00b0B", id: "qf-0" },
+          { home: stA[1]?.name, away: kw[3], label: "QF2: 2\u00b0A vs vinc. 5\u00b0A\u20134\u00b0B", id: "qf-1" },
           { home: stB[0]?.name, away: kw[1], label: "QF3: 1\u00b0B vs vinc. 4\u00b0A\u20135\u00b0B", id: "qf-2" },
           { home: stB[1]?.name, away: kw[0], label: "QF4: 2\u00b0B vs vinc. 3\u00b0A\u20136\u00b0B", id: "qf-3" },
         ];
